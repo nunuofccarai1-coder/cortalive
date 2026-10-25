@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101014">
+<title>CortaLive — Cortes de lives</title>
+<style>
+:root{color-scheme:dark;--bg:#101014;--panel:#191920;--muted:#a8a8b5;--accent:#7c5cff;--line:#30303b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#25203b 0,#101014 48%);color:#f7f7fb;font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:850px;margin:auto;padding:22px 16px 48px}.brand{display:flex;align-items:center;gap:12px;margin:8px 0 24px}.logo{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#8c65ff,#4b32c9);font-size:24px;font-weight:900}.brand h1{margin:0;font-size:24px}.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+h2{font-size:19px;margin:0 0 12px}.panel{background:#191920eF;border:1px solid var(--line);border-radius:18px;padding:17px;margin:14px 0;box-shadow:0 10px 35px #0002}
+p{line-height:1.5}.muted{color:var(--muted);font-size:13px}.drop{border:1.5px dashed #5d528a;border-radius:15px;padding:20px;text-align:center;background:#211d30}.drop input{max-width:100%;margin-top:12px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:150px}
+input[type=text],input[type=number]{width:100%;padding:12px;border-radius:11px;border:1px solid #444451;background:#111116;color:white;font-size:15px}button,.button{border:0;border-radius:12px;padding:12px 15px;background:var(--accent);color:white;font-weight:750;font-size:15px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#2a2a35;border:1px solid #444451}.full{width:100%;margin-top:10px}video{width:100%;max-height:420px;background:#050507;border-radius:13px;margin-top:12px}.status{padding:10px 12px;border-radius:10px;background:#252532;color:#ded9ff;font-size:13px;margin-top:12px;white-space:pre-wrap}.clips{display:grid;gap:10px}.clip{padding:13px;border:1px solid var(--line);border-radius:13px;background:#141419}.clip strong{display:block;margin-bottom:4px}.clip button{margin-top:9px;width:100%}.tag{display:inline-block;background:#30274e;color:#d9d0ff;padding:4px 8px;border-radius:20px;font-size:11px;margin-bottom:8px}.warning{border-left:3px solid #ffbd59;padding-left:11px}.footer{font-size:12px;color:#8f8f9d;text-align:center;margin-top:25px}a{color:#c9bcff}
+</style>
+</head>
+<body><main>
+<header class="brand"><div class="logo">▶</div><div><h1>CortaLive</h1><p>Transforme vídeos longos em clipes verticais</p></div></header>
+<section class="panel">
+<span class="tag">PROTÓTIPO GRATUITO</span>
+<h2>1. Escolha sua live</h2>
+<div class="drop"><div style="font-size:30px">⬆</div><b>Envie um vídeo do celular</b><p class="muted">MP4 ou WebM funcionam melhor. O vídeo é processado no navegador nesta versão.</p><input id="file" type="file" accept="video/*"></div>
+<div style="text-align:center;color:var(--muted);padding:12px">— ou informe um link do YouTube —</div>
+<label for="yt" class="muted">Link do vídeo</label><input id="yt" type="text" placeholder="https://www.youtube.com/watch?v=...">
+<button class="secondary full" id="openyt">Abrir link do YouTube</button>
+<label class="muted" for="apiUrl" style="display:block;margin-top:14px">Endereço do servidor (preencher após hospedagem)</label><input id="apiUrl" type="text" placeholder="https://seu-servidor.com">
+<p class="muted">Por restrições do YouTube e do navegador, colar o link não baixa nem processa o vídeo automaticamente. Use um arquivo de vídeo que você tenha direito de editar.</p>
+</section>
+<section class="panel">
+<h2>2. Gerar sugestões de cortes</h2>
+<div class="row">
+<div><label class="muted" for="count">Quantidade de clipes</label><input id="count" type="number" min="1" max="8" value="3"></div>
+<div><label class="muted" for="length">Duração de cada clipe (segundos)</label><input id="length" type="number" min="10" max="90" value="30"></div>
+</div>
+<button id="analyze" class="full" disabled>Sugerir cortes do vídeo</button>
+<p class="muted">Nesta versão, os trechos são sugeridos pela duração do vídeo e distribuídos ao longo dele. Isso ainda não é uma análise real por IA nem identifica automaticamente falas engraçadas ou momentos virais.</p>
+<video id="preview" controls playsinline hidden></video>
+<div id="status" class="status">Escolha um vídeo para começar.</div>
+</section>
+<section class="panel">
+<h2>3. Seus clipes</h2>
+<div id="clips" class="clips"><p class="muted">Os clipes sugeridos vão aparecer aqui.</p></div>
+</section>
+<section class="panel">
+<h2>Como evoluir para IA de verdade</h2>
+<p>O próximo passo é adicionar transcrição de fala e pontuação dos momentos (por exemplo, frases com emoção, risadas e mudanças de volume). Isso exige um modelo de IA ou uma API. Para manter o custo baixo, o ideal é testar primeiro com vídeos curtos e serviços com cota gratuita.</p>
+<p class="muted warning">A exportação de clipes pelo navegador depende do suporte do Android/Chrome e pode falhar com arquivos muito grandes. Mantenha a página aberta durante a gravação.</p>
+</section>
+<div class="footer">CortaLive • protótipo • links do YouTube exigem servidor configurado</div>
+</main>
+<script>
+'use strict';
+const fileInput = document.getElementById('file');
+const preview = document.getElementById('preview');
+const analyze = document.getElementById('analyze');
+const statusBox = document.getElementById('status');
+const clipsBox = document.getElementById('clips');
+const youtubeInput = document.getElementById('yt');
+const apiUrlInput = document.getElementById('apiUrl');
+const openYoutube = document.getElementById('openyt');
+let videoUrl = null;
+let fileName = 'video';
+let loadedFile = false;
+let isExporting = false;
+
+function status(message) { statusBox.textContent = message; }
+function format(seconds) {
+  if (!Number.isFinite(seconds)) return '—';
+  const whole = Math.max(0, Math.floor(seconds));
+  return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+}
+function setAnalyzeState() {
+  if (loadedFile && Number.isFinite(preview.duration)) {
+    analyze.disabled = false;
+    analyze.textContent = 'Sugerir cortes do vídeo';
+  } else if (youtubeInput.value.trim()) {
+    // Keep the button usable, but do not pretend a YouTube URL can be processed here.
+    analyze.disabled = false;
+    analyze.textContent = 'Verificar link do YouTube';
+  } else {
+    analyze.disabled = true;
+    analyze.textContent = 'Sugerir cortes do vídeo';
+  }
+}
+function clearSuggestions(message) {
+  clipsBox.replaceChildren();
+  const p = document.createElement('p');
+  p.className = 'muted';
+  p.textContent = message;
+  clipsBox.appendChild(p);
+}
+
+fileInput.addEventListener('change', () => {
+  if (isExporting) {
+    fileInput.value = '';
+    status('Aguarde o clipe atual terminar antes de trocar de vídeo.');
+    return;
+  }
+  const f = fileInput.files && fileInput.files[0];
+  loadedFile = false;
+  preview.pause();
+  preview.removeAttribute('src');
+  preview.load();
+  preview.hidden = true;
+  clearSuggestions('As sugestões do novo vídeo vão aparecer aqui.');
+  setAnalyzeState();
+  if (videoUrl) {
+    URL.revokeObjectURL(videoUrl);
+    videoUrl = null;
+  }
+  if (!f) {
+    status('Escolha um arquivo de vídeo para começar.');
+    return;
+  }
+  if (f.type && !f.type.startsWith('video/')) {
+    fileInput.value = '';
+    status('Esse arquivo não parece ser um vídeo. Escolha um MP4 ou WebM.');
+    return;
+  }
+  videoUrl = URL.createObjectURL(f);
+  fileName = (f.name || 'video').replace(/\.[^.]+$/, '') || 'video';
+  preview.onloadedmetadata = () => {
+    if (!Number.isFinite(preview.duration) || preview.duration <= 0) {
+      loadedFile = false;
+      setAnalyzeState();
+      status('Não consegui ler a duração desse vídeo. Tente salvá-lo como MP4 e envie novamente.');
+      return;
+    }
+    loadedFile = true;
+    preview.hidden = false;
+    setAnalyzeState();
+    status('Vídeo carregado: ' + format(preview.duration) + ' • ' + f.name);
+    clearSuggestions('Toque em “Sugerir cortes do vídeo” para criar trechos.');
+  };
+  preview.onerror = () => {
+    loadedFile = false;
+    setAnalyzeState();
+    status('O navegador não conseguiu abrir esse vídeo. Tente um MP4 H.264 ou WebM.');
+  };
+  preview.src = videoUrl;
+  preview.load();
+  preview.hidden = false;
+  status('Carregando vídeo…');
+});
+
+youtubeInput.addEventListener('input', () => {
+  setAnalyzeState();
+  if (!loadedFile && youtubeInput.value.trim()) {
+    status('Link preenchido. O botão pode ser tocado, mas este protótipo não consegue baixar nem analisar vídeos diretamente do YouTube.');
+  } else if (!loadedFile && !youtubeInput.value.trim()) {
+    status('Escolha um vídeo do celular ou informe um link do YouTube.');
+  }
+});
+
+openYoutube.addEventListener('click', () => {
+  const value = youtubeInput.value.trim();
+  let url;
+  try { url = new URL(value); } catch (_) {
+    status('Cole um link completo do YouTube, começando com https://');
+    return;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+  if (!['youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) {
+    status('Esse endereço não parece ser um link válido do YouTube.');
+    return;
+  }
+  window.open(url.href, '_blank', 'noopener,noreferrer');
+  status('Link aberto. Para gerar e baixar trechos nesta versão, selecione também o arquivo de vídeo no seu celular.');
+});
+
+analyze.addEventListener('click', async () => {
+  if (!loadedFile || !Number.isFinite(preview.duration)) {
+    const ytUrl = youtubeInput.value.trim();
+    const apiBase = apiUrlInput.value.trim().replace(/\/$/, '');
+    if (ytUrl && apiBase) {
+      let parsed;
+      try { parsed = new URL(apiBase); } catch (_) { status('Confira o endereço do servidor.'); return; }
+      if (!['https:', 'http:'].includes(parsed.protocol)) { status('O endereço do servidor precisa começar com https:// ou http://'); return; }
+      analyze.disabled = true; analyze.textContent = 'Processando no servidor…';
+      status('Enviando o link ao servidor. Isso pode demorar; mantenha a página aberta.');
+      try {
+        const response = await fetch(apiBase + '/api/clips', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:ytUrl,count:Math.max(1,Math.min(8,Number.parseInt(document.getElementById('count').value,10)||3)),seconds:Math.max(10,Math.min(90,Number.parseInt(document.getElementById('length').value,10)||30))})});
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || 'O servidor não conseguiu processar esse link.');
+        clipsBox.replaceChildren();
+        (data.clips || []).forEach((clip,index) => { const card=document.createElement('article');card.className='clip';const title=document.createElement('strong');title.textContent='Clipe '+(index+1)+' • '+format(clip.start)+' – '+format(clip.end);const desc=document.createElement('div');desc.className='muted';desc.textContent='MP4 gerado no servidor; trecho distribuído no vídeo, sem seleção por IA.';const link=document.createElement('a');link.href=apiBase+clip.download_url;link.textContent='Baixar clipe MP4';link.target='_blank';link.rel='noopener';link.style.display='block';link.style.marginTop='10px';card.append(title,desc,link);clipsBox.appendChild(card);});
+        status((data.title ? 'Vídeo: '+data.title+'\n' : '')+(data.note || 'Clipes gerados.'));
+      } catch(err) { status('Falha no processamento: '+(err.message || 'erro de conexão')+'\nConfira se o servidor está hospedado e disponível.'); }
+      finally { setAnalyzeState(); }
+    } else if (ytUrl) { status('O servidor ainda não está conectado. Hospede o backend incluído no ZIP e cole aqui o endereço HTTPS dele.'); }
+    else { status('Escolha um vídeo no celular ou informe um link do YouTube.'); }
+    return;
+  }
+  if (isExporting) {
+    status('Aguarde a exportação do clipe atual terminar.');
+    return;
+  }
+  const duration = preview.duration;
+  const countRaw = Number.parseInt(document.getElementById('count').value, 10);
+  const lengthRaw = Number.parseInt(document.getElementById('length').value, 10);
+  const count = Math.max(1, Math.min(8, Number.isFinite(countRaw) ? countRaw : 3));
+  const requestedLength = Math.max(5, Math.min(90, Number.isFinite(lengthRaw) ? lengthRaw : 30));
+  if (duration < 3) {
+    status('Este vídeo é curto demais. Use um vídeo de pelo menos 3 segundos.');
+    return;
+  }
+  const clipLength = Math.min(requestedLength, Math.max(3, duration - 0.25));
+  const maxStart = Math.max(0, duration - clipLength);
+  const starts = count === 1 ? [maxStart / 2] : Array.from({length: count}, (_, i) => maxStart * i / (count - 1));
+  clipsBox.replaceChildren();
+  starts.forEach((start, index) => {
+    const end = Math.min(duration, start + clipLength);
+    const card = document.createElement('article');
+    card.className = 'clip';
+    const title = document.createElement('strong');
+    title.textContent = 'Clipe ' + (index + 1) + ' • ' + format(start) + ' – ' + format(end);
+    const description = document.createElement('div');
+    description.className = 'muted';
+    description.textContent = 'Trecho sugerido pela posição no vídeo; não foi escolhido por IA.';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Gerar e baixar clipe';
+    button.addEventListener('click', () => exportClip(start, end, button));
+    card.append(title, description, button);
+    clipsBox.appendChild(card);
+  });
+  status('Pronto: ' + count + ' sugestão(ões). Os trechos são distribuídos pelo vídeo; esta versão não reconhece automaticamente momentos virais.');
+});
+
+function waitForSeek(target) {
+  return new Promise((resolve, reject) => {
+    if (Math.abs(preview.currentTime - target) < 0.08 && !preview.seeking) {
+      resolve();
+      return;
+    }
+    let finished = false;
+    const cleanup = () => {
+      preview.removeEventListener('seeked', onSeeked);
+      preview.removeEventListener('error', onError);
+      clearTimeout(timeout);
+    };
+    const finish = (error) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      error ? reject(error) : resolve();
+    };
+    const onSeeked = () => finish();
+    const onError = () => finish(new Error('Falha ao posicionar o vídeo.'));
+    const timeout = setTimeout(() => finish(new Error('O vídeo demorou demais para posicionar o trecho.')), 8000);
+    preview.addEventListener('seeked', onSeeked, {once: true});
+    preview.addEventListener('error', onError, {once: true});
+    try { preview.currentTime = target; }
+    catch (error) { finish(error); }
+  });
+}
+
+async function exportClip(start, end, button) {
+  if (isExporting) {
+    status('Uma exportação já está acontecendo. Aguarde terminar.');
+    return;
+  }
+  if (!loadedFile || !videoUrl) {
+    status('Escolha um vídeo antes de exportar um clipe.');
+    return;
+  }
+  const capture = preview.captureStream || preview.mozCaptureStream;
+  if (typeof capture !== 'function' || typeof window.MediaRecorder === 'undefined') {
+    status('Este navegador não oferece a captura necessária para exportar. Tente abrir o site no Chrome atualizado ou em outro navegador compatível.');
+    return;
+  }
+  const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  const mime = mimeTypes.find(type => {
+    try { return MediaRecorder.isTypeSupported(type); } catch (_) { return false; }
+  });
+  if (!mime) {
+    status('Este navegador não oferece um formato WebM compatível para exportação.');
+    return;
+  }
+  let stream = null;
+  let recorder = null;
+  let intervalId = null;
+  let stopHandler = null;
+  let errorHandler = null;
+  let chunks = [];
+  let settled = false;
+  const originalTime = Number.isFinite(preview.currentTime) ? preview.currentTime : 0;
+  isExporting = true;
+  button.disabled = true;
+  button.textContent = 'Preparando clipe…';
+  analyze.disabled = true;
+  status('Preparando o trecho. Mantenha esta página aberta.');
+
+  const cleanUp = () => {
+    if (intervalId) clearInterval(intervalId);
+    if (stopHandler) preview.removeEventListener('timeupdate', stopHandler);
+    if (errorHandler && recorder) recorder.removeEventListener('error', errorHandler);
+    if (stream) stream.getTracks().forEach(track => { try { track.stop(); } catch (_) {} });
+    isExporting = false;
+    button.disabled = false;
+    button.textContent = 'Tentar baixar novamente';
+    setAnalyzeState();
+  };
+
+  try {
+    preview.pause();
+    await waitForSeek(start);
+    stream = capture.call(preview);
+    recorder = new MediaRecorder(stream, {mimeType: mime});
+    recorder.ondataavailable = event => {
+      if (event.data && event.data.size > 0) chunks.push(event.data);
+    };
+    const complete = () => {
+      if (settled) return;
+      settled = true;
+      cleanUp();
+      if (!chunks.length) {
+        status('O navegador terminou a gravação sem gerar dados. Tente um vídeo menor ou outro navegador.');
+        return;
+      }
+      const blob = new Blob(chunks, {type: mime});
+      if (!blob.size) {
+        status('O arquivo exportado ficou vazio. Tente gerar o clipe novamente.');
+        return;
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = (fileName || 'video') + '-cortalive-' + Math.floor(start) + 's.webm';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      button.textContent = 'Baixar novamente';
+      status('Clipe gerado em WebM. Procure na pasta Downloads; alguns editores podem pedir conversão para MP4.');
+    };
+    recorder.onstop = complete;
+    recorder.onerror = () => {
+      if (recorder && recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch (_) {}
+      }
+      if (!settled) {
+        settled = true;
+        cleanUp();
+        status('A gravação falhou no navegador. Tente um vídeo menor ou outro navegador.');
+      }
+    };
+    stopHandler = () => {
+      if (preview.currentTime >= end || preview.ended) {
+        preview.pause();
+        if (recorder.state !== 'inactive') recorder.stop();
+      }
+    };
+    preview.addEventListener('timeupdate', stopHandler);
+    // Fallback for browsers that fire timeupdate infrequently.
+    intervalId = setInterval(stopHandler, 150);
+    recorder.start(250);
+    button.textContent = 'Gravando clipe…';
+    await preview.play();
+  } catch (error) {
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch (_) {}
+    }
+    if (!settled) {
+      settled = true;
+      cleanUp();
+      status('Não foi possível exportar este trecho. Confira se o vídeo reproduz normalmente e tente novamente.');
+    }
+    console.warn('CortaLive export error:', error);
+  }
+}
+
+window.addEventListener('beforeunload', () => {
+  if (videoUrl) URL.revokeObjectURL(videoUrl);
+});
+</script></body></html>
